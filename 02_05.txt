@@ -1,0 +1,104 @@
+DELETE /bowled_over
+
+PUT /bowled_over
+
+PUT bowled_over/_mapping
+{
+  
+    "properties": {
+      "first_name": {
+        "type": "keyword",
+        "copy_to": "monikers"
+      },
+      "last_name": {
+        "type": "keyword",
+        "copy_to": "monikers"
+      },
+      "monikers": {
+        "type": "text"
+      }
+    
+  }
+}
+
+PUT _ingest/pipeline/add_index_time
+{
+  "description": "Adds indexed_at timestamp to documents",
+  "processors": [
+    {
+      "set": {
+        "field": "_source.indexed_time",
+        "value": "{{_ingest.timestamp}}"
+      }
+    }
+  ]
+}
+
+
+PUT bowled_over/_settings
+{
+  "index.default_pipeline": "add_index_time"
+}
+
+
+PUT bowled_over/_doc/1
+{
+   "first_name": "bob",
+   "last_name": "smith"
+}
+
+GET /bowled_over/_doc/1
+DELETE /bowled_over/_doc/1
+
+
+PUT _ingest/pipeline/geoip
+{
+  "description": "Add geoip info",
+  "processors": [
+    {
+      "geoip": {
+        "field": "ip"
+      }
+    }
+  ]
+}
+
+PUT bowled_over/_doc/1?pipeline=geoip
+{
+   "first_name": "bob",
+   "last_name": "smith",
+   "ip": "209.191.139.200"
+}
+
+GET /bowled_over/_doc/1
+
+PUT _ingest/pipeline/conditional_pipeline
+{
+  "description": "Adds indexed_at timestamp to documents",
+  "processors": [
+    {
+      "pipeline": {
+        "if": "ctx.avg < 200", 
+        "name": "add_index_time"
+      }
+    },
+    {
+      "pipeline": {
+        "if": "ctx.avg >= 200", 
+        "name": "geoip"
+      }
+    }
+  ]
+}
+
+PUT bowled_over/_doc/1?pipeline=conditional_pipeline
+{
+   "first_name": "bob",
+   "last_name": "smith",
+   "ip": "209.191.139.200",
+   "avg":190
+}
+
+GET /bowled_over/_doc/1
+
+
